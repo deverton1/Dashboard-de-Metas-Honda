@@ -7,7 +7,7 @@ export type SaleDirection = 'add' | 'remove';
 
 export type SalesState = {
   counts: Record<SaleCategory, number>;
-  goals: Record<SaleCategory, number>;
+  goal: number;
   lastAction: { category: SaleCategory; direction: SaleDirection; at: number } | null;
   updatedAt: number;
 };
@@ -22,8 +22,8 @@ export type StoredAudio = {
 const DATABASE_STORAGE_KEY = 'honda-metas-sqlite-v1';
 const SNAPSHOT_STORAGE_KEY = 'honda-metas-snapshot-v1';
 const DEFAULT_STATE: SalesState = {
-  counts: { moto: 18, consortium: 9 },
-  goals: { moto: 28, consortium: 16 },
+  counts: { moto: 0, consortium: 0 },
+  goal: 30,
   lastAction: null,
   updatedAt: Date.now(),
 };
@@ -49,15 +49,25 @@ function normalizeState(value: Partial<SalesState>): SalesState {
   const legacyCounts = value.counts as Partial<
     Record<SaleCategory | 'cash' | 'finance', number>
   > | undefined;
-  const legacyGoals = value.goals as Partial<
-    Record<SaleCategory | 'cash' | 'finance', number>
-  > | undefined;
+  const legacyGoals = (
+    value as Partial<SalesState> & {
+      goals?: Partial<Record<SaleCategory | 'cash' | 'finance', number>>;
+    }
+  ).goals;
   const motoCount =
     typeof legacyCounts?.moto === 'number'
       ? legacyCounts.moto
       : legacyCounts?.cash;
-  const motoGoal =
-    typeof legacyGoals?.moto === 'number' ? legacyGoals.moto : legacyGoals?.cash;
+  const legacyGoalValues = [legacyGoals?.moto, legacyGoals?.consortium].filter(
+    (goal): goal is number => typeof goal === 'number',
+  );
+  const inferredLegacyGoal =
+    legacyGoalValues.length > 0 &&
+    legacyGoalValues.every((legacyGoal) => legacyGoal === legacyGoalValues[0])
+      ? legacyGoalValues[0]
+      : undefined;
+  const unifiedGoal =
+    typeof value.goal === 'number' ? value.goal : inferredLegacyGoal;
   const lastAction =
     value.lastAction &&
     isSaleCategory(value.lastAction.category) &&
@@ -65,30 +75,31 @@ function normalizeState(value: Partial<SalesState>): SalesState {
     typeof value.lastAction.at === 'number'
       ? value.lastAction
       : null;
+  const normalizedCounts = {
+    moto:
+      typeof motoCount === 'number'
+        ? Math.max(0, motoCount)
+        : DEFAULT_STATE.counts.moto,
+    consortium:
+      typeof legacyCounts?.consortium === 'number'
+        ? Math.max(0, legacyCounts.consortium)
+        : DEFAULT_STATE.counts.consortium,
+  };
+  const isLegacyDemoState =
+    lastAction === null &&
+    normalizedCounts.moto === 18 &&
+    normalizedCounts.consortium === 9;
 
   return {
     ...DEFAULT_STATE,
     ...value,
-    counts: {
-      moto:
-        typeof motoCount === 'number'
-          ? Math.max(0, motoCount)
-          : DEFAULT_STATE.counts.moto,
-      consortium:
-        typeof legacyCounts?.consortium === 'number'
-          ? Math.max(0, legacyCounts.consortium)
-          : DEFAULT_STATE.counts.consortium,
-    },
-    goals: {
-      moto:
-        typeof motoGoal === 'number'
-          ? Math.max(1, motoGoal)
-          : DEFAULT_STATE.goals.moto,
-      consortium:
-        typeof legacyGoals?.consortium === 'number'
-          ? Math.max(1, legacyGoals.consortium)
-          : DEFAULT_STATE.goals.consortium,
-    },
+    counts: isLegacyDemoState
+      ? { moto: 0, consortium: 0 }
+      : normalizedCounts,
+    goal:
+      typeof unifiedGoal === 'number'
+        ? Math.max(1, unifiedGoal)
+        : DEFAULT_STATE.goal,
     lastAction,
     updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : Date.now(),
   };
@@ -187,7 +198,7 @@ function readStateFromDatabase(db: SqlDatabase): SalesState | null {
   if (rows.length === 0) return null;
 
   const counts = { ...DEFAULT_STATE.counts };
-  const goals = { ...DEFAULT_STATE.goals };
+  const databaseGoals: number[] = [];
   rows.forEach(([category, count, goal]) => {
     const normalizedCategory = category === 'cash' ? 'moto' : category;
     if (!isSaleCategory(normalizedCategory)) return;
@@ -195,9 +206,14 @@ function readStateFromDatabase(db: SqlDatabase): SalesState | null {
       counts[normalizedCategory] = Math.max(0, count);
     }
     if (typeof goal === 'number') {
-      goals[normalizedCategory] = Math.max(1, goal);
+      databaseGoals.push(goal);
     }
   });
+  const goal =
+    databaseGoals.length > 0 &&
+    databaseGoals.every((databaseGoal) => databaseGoal === databaseGoals[0])
+      ? Math.max(1, databaseGoals[0])
+      : DEFAULT_STATE.goal;
 
   const meta = db.exec(
     `SELECT key, value FROM app_meta WHERE key IN ('lastAction', 'updatedAt')`,
@@ -226,7 +242,7 @@ function readStateFromDatabase(db: SqlDatabase): SalesState | null {
     }
   });
 
-  return normalizeState({ counts, goals, lastAction, updatedAt });
+  return normalizeState({ counts, goal, lastAction, updatedAt });
 }
 
 function writeStateToDatabase(next: SalesState) {
@@ -235,7 +251,7 @@ function writeStateToDatabase(next: SalesState) {
   (Object.keys(next.counts) as SaleCategory[]).forEach((category) => {
     database?.run(
       'INSERT INTO sales_progress (category, sales_count, goal) VALUES (?, ?, ?)',
-      [category, next.counts[category], next.goals[category]],
+      [category, next.counts[category], next.goal],
     );
   });
   database.run(
@@ -440,12 +456,17 @@ export function recordSale(category: SaleCategory, direction: SaleDirection) {
   });
 }
 
-export function updateGoal(category: SaleCategory, goal: number) {
-  persist({ ...state, goals: { ...state.goals, [category]: Math.max(1, Math.round(goal)) }, updatedAt: Date.now() });
+export function updateGoal(goal: number) {
+  persist({ ...state, goal: Math.max(1, Math.round(goal)), updatedAt: Date.now() });
 }
 
 export function resetSales() {
-  persist({ ...DEFAULT_STATE, lastAction: null, updatedAt: Date.now() });
+  persist({
+    ...state,
+    counts: { moto: 0, consortium: 0 },
+    lastAction: null,
+    updatedAt: Date.now(),
+  });
 }
 
 export function getTotal(stateValue: SalesState) {

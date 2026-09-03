@@ -39,8 +39,9 @@ Dashboard frontend-only para acompanhar metas de vendas de motos Honda em uma te
 ## Product
 
 - Registra e desfaz vendas à vista, financiadas e de consórcio.
-- Mostra totais, metas e progresso por categoria no painel de controle e no placar de TV.
-- Permite configurar metas, resetar o dia com confirmação, entrar em tela cheia e ligar/desligar o som.
+- Mostra o total combinado de motos e consórcios contra uma única meta objetiva no painel de controle e no placar de TV.
+- Permite configurar uma meta unificada, resetar o dia com confirmação, entrar em tela cheia e ligar/desligar o som.
+- Um novo dia começa com zero vendas; o reset zera motos e consórcios sem alterar a meta configurada.
 
 ## User preferences
 

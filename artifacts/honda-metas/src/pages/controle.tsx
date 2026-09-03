@@ -16,20 +16,20 @@ export default function ControlePage() {
     try { return window.localStorage.getItem('honda-metas-sound') !== 'off'; } catch { return true; }
   });
   const [goalDrafts, setGoalDrafts] = useState<Record<SaleCategory, string>>({
-    moto: String(sales.goals.moto),
-    consortium: String(sales.goals.consortium),
+    moto: String(sales.goal),
+    consortium: String(sales.goal),
   });
   const [confirmReset, setConfirmReset] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<{ category: SaleCategory; direction: 'add' | 'remove'; id: number } | null>(null);
   const lastActionKey = useRef<string | null>(null);
   const total = getTotal(sales);
-  const totalGoal = Object.values(sales.goals).reduce((sum, goal) => sum + goal, 0);
+  const totalGoal = sales.goal;
   const totalPercent = Math.min(100, Math.round((total / totalGoal) * 100));
-  const goalSignature = useMemo(() => `${sales.goals.moto}-${sales.goals.consortium}`, [sales.goals.moto, sales.goals.consortium]);
+  const goalSignature = useMemo(() => String(sales.goal), [sales.goal]);
 
   useEffect(() => {
-    setGoalDrafts({ moto: String(sales.goals.moto), consortium: String(sales.goals.consortium) });
+    setGoalDrafts({ moto: String(sales.goal), consortium: String(sales.goal) });
   }, [goalSignature]); // keep a second tab's goal edits visible
 
   useEffect(() => {
@@ -66,14 +66,14 @@ export default function ControlePage() {
     });
   }, []);
 
-  const saveGoal = useCallback((category: SaleCategory) => {
-    const value = Number(goalDrafts[category]);
+  const saveGoal = useCallback(() => {
+    const value = Number(goalDrafts.moto);
     if (!Number.isFinite(value) || value < 1) {
-      setGoalDrafts((drafts) => ({ ...drafts, [category]: String(sales.goals[category]) }));
+      setGoalDrafts({ moto: String(sales.goal), consortium: String(sales.goal) });
       return;
     }
-    updateGoal(category, value);
-  }, [goalDrafts, sales.goals]);
+    updateGoal(value);
+  }, [goalDrafts.moto, sales.goal]);
 
   const enterFullscreen = useCallback(() => {
     if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.();
@@ -131,31 +131,32 @@ export default function ControlePage() {
               <div className="flex items-center justify-between"><div className="text-[10px] font-bold uppercase tracking-[.25em] text-[#f0b323]">Resumo do dia</div><Target size={18} className="text-[#f0b323]" /></div>
               <div className="mt-12 font-display text-[clamp(6rem,13vw,10rem)] font-extrabold leading-[.75] tracking-[-.06em]" data-testid="text-control-total">{total}</div>
               <div className="mt-4 text-sm text-[#afbfbe]">vendas registradas hoje</div>
-              <div className="mt-10 flex items-end justify-between border-t border-white/10 pt-5"><div><div className="text-[10px] font-bold uppercase tracking-[.19em] text-[#839395]">Progresso geral</div><div className="mt-1 font-display text-3xl font-bold">{totalPercent}%</div></div><div className="text-right text-xs text-[#839395]">Meta total<br /><strong className="text-[#fffaf0]">{totalGoal}</strong></div></div>
+              <div className="mt-10 flex items-end justify-between border-t border-white/10 pt-5"><div><div className="text-[10px] font-bold uppercase tracking-[.19em] text-[#839395]">Progresso geral</div><div className="mt-1 font-display text-3xl font-bold">{totalPercent}%</div></div><div className="text-right text-xs text-[#839395]">Meta unificada<br /><strong className="text-[#fffaf0]">{totalGoal}</strong></div></div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="progress-fill h-full rounded-full bg-[#f0b323]" style={{ width: `${totalPercent}%` }} /></div>
             </div>
           </div>
 
           <div className="enter-up enter-up-delay-2 rounded-[22px] border border-[#e1dcd2] bg-[#fbfaf6] p-5 shadow-[0_8px_25px_rgba(23,38,48,.05)] sm:p-7">
-            <div className="mb-4 flex items-center justify-between">
-              <div><h2 className="font-display text-3xl font-bold uppercase tracking-tight">Lançamentos</h2><p className="mt-1 text-xs text-[#899096]">Escolha uma categoria para atualizar o placar.</p></div>
+             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+               <div><h2 className="font-display text-3xl font-bold uppercase tracking-tight">Lançamentos</h2><p className="mt-1 text-xs text-[#899096]">Cada moto ou consórcio soma para a mesma meta.</p></div>
               <div className="hidden items-center gap-1 text-[10px] font-bold uppercase tracking-[.16em] text-[#899096] sm:flex"><CircleHelp size={14} /> Atalhos rápidos</div>
             </div>
+             <label className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.14em] text-[#9a9f9f]">Meta unificada
+               <input type="number" min="1" value={goalDrafts.moto} onChange={(event) => setGoalDrafts({ moto: event.target.value, consortium: event.target.value })} onBlur={saveGoal} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="h-8 w-20 rounded-md border border-[#ded8cc] bg-[#f5f1e9] px-2 text-center font-mono text-xs font-bold text-[#172630] outline-none transition focus:border-[#e40521] focus:ring-2 focus:ring-[#e40521]/10" data-testid="input-goal-unified" />
+               <span className="normal-case font-normal tracking-normal text-[#9a9f9f]">vendas no total</span>
+             </label>
             <div className="divide-y divide-[#e8e2d8]">
               {categories.map((category) => {
                 const meta = CATEGORY_META[category];
                 const count = sales.counts[category];
-                const percent = Math.min(100, Math.round((count / sales.goals[category]) * 100));
+                 const percent = Math.min(100, Math.round((count / sales.goal) * 100));
                 return (
                   <div key={category} className="group grid gap-4 py-5 sm:grid-cols-[1fr_auto] sm:items-center" data-testid={`row-control-category-${category}`}>
                     <div className="flex items-start gap-3">
                       <span className="mt-1 h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline justify-between gap-3"><h3 className="font-display text-2xl font-bold uppercase tracking-tight text-[#172630]">{meta.label}</h3><span className="font-mono text-sm font-bold text-[#617078]" data-testid={`text-control-count-${category}`}>{count} / {sales.goals[category]}</span></div>
+                        <div className="flex items-baseline justify-between gap-3"><h3 className="font-display text-2xl font-bold uppercase tracking-tight text-[#172630]">{meta.label}</h3><span className="font-mono text-sm font-bold text-[#617078]" data-testid={`text-control-count-${category}`}>{count} vendas</span></div>
                         <div className="mt-2 flex items-center gap-3"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#ece7dd]"><div className="progress-fill h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: meta.color }} /></div><span className="w-10 text-right text-[11px] font-bold text-[#778187]">{percent}%</span></div>
-                        <label className="mt-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.14em] text-[#9a9f9f]">Meta
-                          <input type="number" min="1" value={goalDrafts[category]} onChange={(event) => setGoalDrafts((drafts) => ({ ...drafts, [category]: event.target.value }))} onBlur={() => saveGoal(category)} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="h-7 w-16 rounded-md border border-[#ded8cc] bg-[#f5f1e9] px-2 text-center font-mono text-xs font-bold text-[#172630] outline-none transition focus:border-[#e40521] focus:ring-2 focus:ring-[#e40521]/10" data-testid={`input-goal-${category}`} />
-                        </label>
                       </div>
                     </div>
                     <div className="flex items-center justify-end gap-2">

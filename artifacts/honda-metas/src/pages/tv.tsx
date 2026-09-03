@@ -18,7 +18,7 @@ export default function TvPage() {
   const [celebration, setCelebration] = useState<{ category: SaleCategory; direction: 'add' | 'remove'; id: number } | null>(null);
   const lastActionKey = useRef<string | null>(null);
   const total = getTotal(sales);
-  const totalGoal = Object.values(sales.goals).reduce((sum, goal) => sum + goal, 0);
+  const totalGoal = sales.goal;
   const overallPercent = Math.min(100, Math.round((total / totalGoal) * 100));
   const today = useMemo(() => new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()), []);
 
@@ -95,7 +95,7 @@ export default function TvPage() {
             <div className="lg:pb-1 lg:text-right">
               <div className="text-[10px] font-bold uppercase tracking-[.28em] text-[#8d9b9e]">Total de vendas</div>
               <div className="mt-1 font-display text-[clamp(6rem,14vw,12rem)] font-extrabold leading-[.78] tracking-[-.05em] text-white" data-testid="text-tv-total">{total}</div>
-              <div className="mt-4 flex items-center gap-2 text-sm text-[#aebbb9] lg:justify-end"><Target size={16} className="text-[#f0b323]" /> {overallPercent}% da meta geral</div>
+              <div className="mt-4 flex items-center gap-2 text-sm text-[#aebbb9] lg:justify-end"><Target size={16} className="text-[#f0b323]" /> {overallPercent}% da meta unificada</div>
             </div>
           </div>
 
@@ -103,7 +103,7 @@ export default function TvPage() {
             {categories.map((category, index) => {
               const meta = CATEGORY_META[category];
               const count = sales.counts[category];
-              const goal = sales.goals[category];
+              const goal = sales.goal;
               const percent = Math.min(100, Math.round((count / goal) * 100));
               return (
                 <div key={category} className={`enter-up enter-up-delay-${index + 1} group relative overflow-hidden rounded-[18px] border border-white/10 bg-white/[.045] p-5 transition hover:bg-white/[.07] sm:p-7`} data-testid={`card-tv-category-${category}`}>
@@ -115,7 +115,7 @@ export default function TvPage() {
                     </div>
                     <div className="font-display text-5xl font-extrabold leading-none text-white sm:text-6xl" data-testid={`text-tv-count-${category}`}>{count}</div>
                   </div>
-                  <div className="mt-6 flex items-center justify-between text-xs text-[#9caaa9]"><span>Meta {goal}</span><span className="font-bold text-[#dce3df]">{percent}%</span></div>
+                  <div className="mt-6 flex items-center justify-between text-xs text-[#9caaa9]"><span>{count} de {goal} na meta unificada</span><span className="font-bold text-[#dce3df]">{percent}%</span></div>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="progress-fill h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: meta.color }} /></div>
                 </div>
               );
