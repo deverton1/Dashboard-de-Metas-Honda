@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import { ArrowDown, ArrowUp, Check, ChevronRight, CircleHelp, FileAudio, Headphones, Maximize2, Play, RotateCcw, Target, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { CelebrationOverlay } from '@/components/celebration-overlay';
 import { ShowroomNav } from '@/components/showroom-nav';
-import { CATEGORY_META, clearAudioFile, getTotal, recordSale, resetSales, updateGoal, uploadAudioFile, useSalesState, useStoredAudio, type SaleCategory } from '@/lib/sales-store';
+import { CATEGORY_META, clearAudioFile, getCelebrationKind, getTotal, recordSale, resetSales, updateGoal, uploadAudioFile, useSalesState, useStoredAudio, type CelebrationKind, type SaleCategory } from '@/lib/sales-store';
 import { AUDIO_PRESETS, playSaleChime, setAudioSettings, stopCelebrationAudio, unlockAudio, useAudioSettings } from '@/lib/showroom-audio';
 
 const categories: SaleCategory[] = ['moto', 'consortium'];
@@ -21,7 +21,7 @@ export default function ControlePage() {
   });
   const [confirmReset, setConfirmReset] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
-  const [celebration, setCelebration] = useState<{ category: SaleCategory; direction: 'add' | 'remove'; id: number } | null>(null);
+  const [celebration, setCelebration] = useState<{ category: SaleCategory; direction: 'add' | 'remove'; id: number; kind: CelebrationKind; total: number; goal: number } | null>(null);
   const lastActionKey = useRef<string | null>(null);
   const total = getTotal(sales);
   const totalGoal = sales.goal;
@@ -49,9 +49,15 @@ export default function ControlePage() {
     if (lastActionKey.current === key) return;
     lastActionKey.current = key;
     if (action.direction !== 'add') return;
-    setCelebration({ ...action, id: action.at });
+    setCelebration({
+      ...action,
+      id: action.at,
+      kind: getCelebrationKind(total, sales.goal),
+      total,
+      goal: sales.goal,
+    });
     playSaleChime(soundOn, audioSettings, uploadedAudio);
-  }, [sales.lastAction, soundOn, audioSettings, uploadedAudio]);
+  }, [sales.lastAction, soundOn, audioSettings, uploadedAudio, total, sales.goal]);
 
   const changeSale = useCallback((category: SaleCategory, direction: 'add' | 'remove') => {
     unlockAudio();

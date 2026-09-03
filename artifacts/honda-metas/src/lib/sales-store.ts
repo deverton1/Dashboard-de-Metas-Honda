@@ -4,6 +4,13 @@ import { useSyncExternalStore } from 'react';
 
 export type SaleCategory = 'moto' | 'consortium';
 export type SaleDirection = 'add' | 'remove';
+export type CelebrationKind = 'standard' | 'goal' | 'surpassed';
+
+export function getCelebrationKind(total: number, goal: number): CelebrationKind {
+  if (total === goal) return 'goal';
+  if (total > goal) return 'surpassed';
+  return 'standard';
+}
 
 export type SalesState = {
   counts: Record<SaleCategory, number>;

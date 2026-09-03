@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import { ArrowUpRight, Maximize2, Monitor, Target, Volume2, VolumeX } from 'lucide-react';
 import { CelebrationOverlay } from '@/components/celebration-overlay';
 import { HondaMark } from '@/components/honda-mark';
-import { CATEGORY_META, getTotal, useSalesState, useStoredAudio, type SaleCategory } from '@/lib/sales-store';
+import { CATEGORY_META, getCelebrationKind, getTotal, useSalesState, useStoredAudio, type CelebrationKind, type SaleCategory } from '@/lib/sales-store';
 import { playSaleChime, stopCelebrationAudio, unlockAudio, useAudioSettings } from '@/lib/showroom-audio';
 
 const categories: SaleCategory[] = ['moto', 'consortium'];
@@ -15,7 +15,7 @@ export default function TvPage() {
   const [soundOn, setSoundOn] = useState(() => {
     try { return window.localStorage.getItem('honda-metas-sound') !== 'off'; } catch { return true; }
   });
-  const [celebration, setCelebration] = useState<{ category: SaleCategory; direction: 'add' | 'remove'; id: number } | null>(null);
+  const [celebration, setCelebration] = useState<{ category: SaleCategory; direction: 'add' | 'remove'; id: number; kind: CelebrationKind; total: number; goal: number } | null>(null);
   const lastActionKey = useRef<string | null>(null);
   const total = getTotal(sales);
   const totalGoal = sales.goal;
@@ -39,9 +39,15 @@ export default function TvPage() {
     if (lastActionKey.current === key) return;
     lastActionKey.current = key;
     if (action.direction !== 'add') return;
-    setCelebration({ ...action, id: action.at });
+    setCelebration({
+      ...action,
+      id: action.at,
+      kind: getCelebrationKind(total, sales.goal),
+      total,
+      goal: sales.goal,
+    });
     playSaleChime(soundOn, audioSettings, uploadedAudio);
-  }, [sales.lastAction, soundOn, audioSettings, uploadedAudio]);
+  }, [sales.lastAction, soundOn, audioSettings, uploadedAudio, total, sales.goal]);
 
   const toggleSound = useCallback(() => {
     unlockAudio();
