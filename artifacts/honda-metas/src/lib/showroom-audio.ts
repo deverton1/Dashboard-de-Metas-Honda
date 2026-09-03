@@ -1,6 +1,10 @@
 import { useSyncExternalStore } from 'react';
+import type { StoredAudio } from './sales-store';
 
 let audioContext: AudioContext | null = null;
+let customAudio: HTMLAudioElement | null = null;
+let customAudioUrl: string | null = null;
+let customAudioTimer: number | null = null;
 const AUDIO_SETTINGS_STORAGE_KEY = 'honda-metas-audio-settings-v1';
 
 export type AudioPreset = 'anthem' | 'sprint' | 'spark';
@@ -92,6 +96,26 @@ export function useAudioSettings() {
   );
 }
 
+function stopCustomAudio() {
+  if (customAudioTimer !== null) {
+    window.clearTimeout(customAudioTimer);
+    customAudioTimer = null;
+  }
+  if (customAudio) {
+    customAudio.pause();
+    customAudio.currentTime = 0;
+    customAudio = null;
+  }
+  if (customAudioUrl) {
+    URL.revokeObjectURL(customAudioUrl);
+    customAudioUrl = null;
+  }
+}
+
+export function stopCelebrationAudio() {
+  stopCustomAudio();
+}
+
 function getAudioContext() {
   if (typeof window === 'undefined') return null;
   audioContext ??= new AudioContext();
@@ -106,8 +130,24 @@ export function unlockAudio() {
 export function playSaleChime(
   enabled: boolean,
   settings: AudioSettings = audioSettings,
+  uploadedAudio: StoredAudio | null = null,
 ) {
   if (!enabled) return;
+  stopCustomAudio();
+  if (uploadedAudio) {
+    customAudioUrl = URL.createObjectURL(
+      new Blob(
+        [uploadedAudio.bytes.slice().buffer as ArrayBuffer],
+        { type: uploadedAudio.type || 'audio/mpeg' },
+      ),
+    );
+    customAudio = new Audio(customAudioUrl);
+    customAudio.loop = true;
+    customAudio.volume = settings.volume / 100;
+    void customAudio.play().catch(() => undefined);
+    customAudioTimer = window.setTimeout(stopCustomAudio, 10_000);
+    return;
+  }
   const context = getAudioContext();
   if (!context) return;
   if (context.state === 'suspended') void context.resume();

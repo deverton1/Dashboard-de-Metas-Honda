@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'wouter';
-import { ArrowDown, ArrowUp, Check, ChevronRight, CircleHelp, Headphones, Maximize2, Play, RotateCcw, Target, Volume2, VolumeX } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronRight, CircleHelp, FileAudio, Headphones, Maximize2, Play, RotateCcw, Target, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { CelebrationOverlay } from '@/components/celebration-overlay';
 import { ShowroomNav } from '@/components/showroom-nav';
-import { CATEGORY_META, getTotal, recordSale, resetSales, updateGoal, useSalesState, type SaleCategory } from '@/lib/sales-store';
-import { AUDIO_PRESETS, playSaleChime, setAudioSettings, unlockAudio, useAudioSettings } from '@/lib/showroom-audio';
+import { CATEGORY_META, clearAudioFile, getTotal, recordSale, resetSales, updateGoal, uploadAudioFile, useSalesState, useStoredAudio, type SaleCategory } from '@/lib/sales-store';
+import { AUDIO_PRESETS, playSaleChime, setAudioSettings, stopCelebrationAudio, unlockAudio, useAudioSettings } from '@/lib/showroom-audio';
 
 const categories: SaleCategory[] = ['moto', 'consortium'];
 
 export default function ControlePage() {
   const sales = useSalesState();
   const audioSettings = useAudioSettings();
+  const uploadedAudio = useStoredAudio();
   const [soundOn, setSoundOn] = useState(() => {
     try { return window.localStorage.getItem('honda-metas-sound') !== 'off'; } catch { return true; }
   });
@@ -19,6 +20,7 @@ export default function ControlePage() {
     consortium: String(sales.goals.consortium),
   });
   const [confirmReset, setConfirmReset] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<{ category: SaleCategory; direction: 'add' | 'remove'; id: number } | null>(null);
   const lastActionKey = useRef<string | null>(null);
   const total = getTotal(sales);
@@ -47,8 +49,8 @@ export default function ControlePage() {
     if (lastActionKey.current === key) return;
     lastActionKey.current = key;
     setCelebration({ ...action, id: action.at });
-    playSaleChime(soundOn, audioSettings);
-  }, [sales.lastAction, soundOn, audioSettings]);
+    playSaleChime(soundOn, audioSettings, uploadedAudio);
+  }, [sales.lastAction, soundOn, audioSettings, uploadedAudio]);
 
   const changeSale = useCallback((category: SaleCategory, direction: 'add' | 'remove') => {
     unlockAudio();
@@ -79,8 +81,28 @@ export default function ControlePage() {
 
   const previewAudio = useCallback(() => {
     unlockAudio();
-    playSaleChime(true, audioSettings);
-  }, [audioSettings]);
+    playSaleChime(true, audioSettings, uploadedAudio);
+  }, [audioSettings, uploadedAudio]);
+
+  const handleAudioUpload = useCallback(async (file: File | undefined) => {
+    if (!file) return;
+    setAudioError(null);
+    try {
+      await uploadAudioFile(file);
+    } catch (error) {
+      setAudioError(error instanceof Error ? error.message : 'Não foi possível salvar o MP3.');
+    }
+  }, []);
+
+  const handleAudioRemove = useCallback(async () => {
+    setAudioError(null);
+    stopCelebrationAudio();
+    try {
+      await clearAudioFile();
+    } catch (error) {
+      setAudioError(error instanceof Error ? error.message : 'Não foi possível remover o MP3.');
+    }
+  }, []);
 
   return (
     <main className="min-h-[100dvh] bg-[#f5f1e9] text-[#172630]" data-testid="page-controle">
@@ -180,6 +202,32 @@ export default function ControlePage() {
                 );
               })}
             </div>
+            <div className="mt-5 flex flex-col gap-3 rounded-xl border border-dashed border-[#d7cfc2] bg-[#f8f5ef] p-4 sm:flex-row sm:items-center sm:justify-between">
+              {uploadedAudio ? (
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e40521] text-white"><FileAudio size={17} /></div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-bold text-[#172630]">{uploadedAudio.name}</div>
+                    <div className="mt-0.5 text-[11px] text-[#7e898b]">MP3 personalizado ativo no placar</div>
+                  </div>
+                  <button onClick={() => void handleAudioRemove()} className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#dfd6ca] px-2.5 py-2 text-[10px] font-bold uppercase tracking-[.08em] text-[#788286] transition hover:border-[#e40521] hover:text-[#e40521]" data-testid="button-remove-audio">
+                    <Trash2 size={13} /> Remover
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8e0d4] text-[#e40521]"><FileAudio size={17} /></div>
+                  <div><div className="text-sm font-bold text-[#172630]">Use seu próprio MP3</div><div className="mt-0.5 text-[11px] text-[#7e898b]">Ele ficará salvo no SQLite deste navegador.</div></div>
+                </div>
+              )}
+              {!uploadedAudio && (
+                <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-[#172630] px-3 py-2.5 text-[10px] font-bold uppercase tracking-[.1em] text-white transition hover:bg-[#273b48]">
+                  <FileAudio size={14} className="mr-2" /> Escolher MP3
+                  <input type="file" accept=".mp3,audio/mpeg" className="sr-only" onChange={(event) => { void handleAudioUpload(event.target.files?.[0]); event.currentTarget.value = ''; }} data-testid="input-audio-file" />
+                </label>
+              )}
+            </div>
+            {audioError && <p className="mt-2 text-xs font-medium text-[#e40521]" role="alert">{audioError}</p>}
           </div>
           <div className="rounded-[22px] bg-[#e40521] p-5 text-white shadow-[0_12px_30px_rgba(228,5,33,.16)] sm:p-7">
             <div className="flex items-center justify-between">

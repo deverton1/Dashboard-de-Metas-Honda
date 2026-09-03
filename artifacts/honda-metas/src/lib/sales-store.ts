@@ -12,6 +12,13 @@ export type SalesState = {
   updatedAt: number;
 };
 
+export type StoredAudio = {
+  name: string;
+  type: string;
+  bytes: Uint8Array;
+  updatedAt: number;
+};
+
 const DATABASE_STORAGE_KEY = 'honda-metas-sqlite-v1';
 const SNAPSHOT_STORAGE_KEY = 'honda-metas-snapshot-v1';
 const DEFAULT_STATE: SalesState = {
@@ -25,7 +32,10 @@ let state = readSnapshot() ?? DEFAULT_STATE;
 let database: SqlDatabase | null = null;
 let databaseReady: Promise<void> | null = null;
 let pendingState: SalesState | null = null;
+let storedAudio: StoredAudio | null = null;
+let pendingAudio: StoredAudio | null | undefined;
 const listeners = new Set<() => void>();
+const audioListeners = new Set<() => void>();
 
 function isSaleCategory(value: unknown): value is SaleCategory {
   return value === 'moto' || value === 'consortium';
@@ -99,6 +109,10 @@ function notify() {
   listeners.forEach((listener) => listener());
 }
 
+function notifyAudio() {
+  audioListeners.forEach((listener) => listener());
+}
+
 function persistSnapshot(next: SalesState) {
   try {
     window.localStorage.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(next));
@@ -135,7 +149,34 @@ function ensureSchema(db: SqlDatabase) {
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS audio_assets (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      file_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      audio_blob BLOB NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
+}
+
+function readAudioFromDatabase(db: SqlDatabase): StoredAudio | null {
+  const result = db.exec(
+    'SELECT file_name, mime_type, audio_blob, updated_at FROM audio_assets WHERE id = 1',
+  );
+  const [name, type, bytes, updatedAt] = result[0]?.values[0] ?? [];
+  if (
+    typeof name !== 'string' ||
+    typeof type !== 'string' ||
+    !(bytes instanceof Uint8Array)
+  ) {
+    return null;
+  }
+  return {
+    name,
+    type,
+    bytes,
+    updatedAt: typeof updatedAt === 'number' ? updatedAt : Date.now(),
+  };
 }
 
 function readStateFromDatabase(db: SqlDatabase): SalesState | null {
@@ -208,6 +249,11 @@ function writeStateToDatabase(next: SalesState) {
     [String(next.updatedAt)],
   );
   persistSnapshot(next);
+  persistDatabaseBytes();
+}
+
+function persistDatabaseBytes() {
+  if (!database) return;
   try {
     window.localStorage.setItem(
       DATABASE_STORAGE_KEY,
@@ -216,6 +262,19 @@ function writeStateToDatabase(next: SalesState) {
   } catch {
     // Browsers can block persistence in private or restricted contexts.
   }
+}
+
+function writeAudioToDatabase(next: StoredAudio | null) {
+  if (!database) return;
+  database.run('DELETE FROM audio_assets');
+  if (next) {
+    database.run(
+      `INSERT INTO audio_assets (id, file_name, mime_type, audio_blob, updated_at)
+       VALUES (1, ?, ?, ?, ?)`,
+      [next.name, next.type, next.bytes, next.updatedAt],
+    );
+  }
+  persistDatabaseBytes();
 }
 
 async function initializeDatabase() {
@@ -235,20 +294,30 @@ async function initializeDatabase() {
     }
     ensureSchema(db);
     database = db;
+    storedAudio = readAudioFromDatabase(db);
+    notifyAudio();
 
     if (pendingState) {
       writeStateToDatabase(pendingState);
       pendingState = null;
-      return;
     }
 
-    const loaded = readStateFromDatabase(db);
-    if (loaded) {
-      state = loaded;
-      persistSnapshot(loaded);
-      notify();
-    } else {
-      writeStateToDatabase(state);
+    if (pendingAudio !== undefined) {
+      storedAudio = pendingAudio;
+      writeAudioToDatabase(pendingAudio);
+      pendingAudio = undefined;
+      notifyAudio();
+    }
+
+    if (!pendingState) {
+      const loaded = readStateFromDatabase(db);
+      if (loaded) {
+        state = loaded;
+        persistSnapshot(loaded);
+        notify();
+      } else {
+        writeStateToDatabase(state);
+      }
     }
   })().catch(() => {
     databaseReady = null;
@@ -276,16 +345,88 @@ function subscribe(listener: () => void) {
 if (typeof window !== 'undefined') {
   void initializeDatabase();
   window.addEventListener('storage', (event) => {
-    if (event.key !== SNAPSHOT_STORAGE_KEY) return;
-    const next = readSnapshot();
-    if (!next) return;
-    state = next;
-    notify();
+    if (event.key === SNAPSHOT_STORAGE_KEY) {
+      const next = readSnapshot();
+      if (!next) return;
+      state = next;
+      notify();
+      return;
+    }
+    if (event.key === DATABASE_STORAGE_KEY && event.newValue) {
+      void syncDatabaseFromStorage(event.newValue);
+    }
   });
+}
+
+async function syncDatabaseFromStorage(serialized: string) {
+  try {
+    const SQL = await initSqlJs({ locateFile: () => wasmUrl });
+    const nextDatabase = new SQL.Database(base64ToBytes(serialized));
+    ensureSchema(nextDatabase);
+    database = nextDatabase;
+    state = readStateFromDatabase(nextDatabase) ?? state;
+    storedAudio = readAudioFromDatabase(nextDatabase);
+    notify();
+    notifyAudio();
+  } catch {
+    // The current tab keeps its last known state if another tab's update is unreadable.
+  }
 }
 
 export function useSalesState() {
   return useSyncExternalStore(subscribe, () => state, () => DEFAULT_STATE);
+}
+
+export function useStoredAudio() {
+  return useSyncExternalStore(
+    (listener) => {
+      audioListeners.add(listener);
+      return () => audioListeners.delete(listener);
+    },
+    () => storedAudio,
+    () => null,
+  );
+}
+
+export async function uploadAudioFile(file: File) {
+  const isMp3 =
+    file.type === 'audio/mpeg' || file.name.toLowerCase().endsWith('.mp3');
+  if (!isMp3) {
+    throw new Error('Escolha um arquivo MP3.');
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error('O arquivo MP3 deve ter no máximo 5 MB.');
+  }
+
+  const next: StoredAudio = {
+    name: file.name,
+    type: file.type || 'audio/mpeg',
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    updatedAt: Date.now(),
+  };
+  storedAudio = next;
+  pendingAudio = next;
+  notifyAudio();
+  await initializeDatabase();
+  if (!database) {
+    throw new Error('Não foi possível abrir o SQLite local.');
+  }
+  writeAudioToDatabase(next);
+  pendingAudio = undefined;
+  notifyAudio();
+}
+
+export async function clearAudioFile() {
+  storedAudio = null;
+  pendingAudio = null;
+  notifyAudio();
+  await initializeDatabase();
+  if (!database) {
+    throw new Error('Não foi possível abrir o SQLite local.');
+  }
+  writeAudioToDatabase(null);
+  pendingAudio = undefined;
+  notifyAudio();
 }
 
 export function recordSale(category: SaleCategory, direction: SaleDirection) {

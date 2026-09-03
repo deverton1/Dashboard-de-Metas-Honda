@@ -3,13 +3,14 @@ import { Link } from 'wouter';
 import { ArrowUpRight, Maximize2, Monitor, Target, Volume2, VolumeX } from 'lucide-react';
 import { CelebrationOverlay } from '@/components/celebration-overlay';
 import { HondaMark } from '@/components/honda-mark';
-import { CATEGORY_META, getTotal, useSalesState, type SaleCategory } from '@/lib/sales-store';
+import { CATEGORY_META, getTotal, useSalesState, useStoredAudio, type SaleCategory } from '@/lib/sales-store';
 import { playSaleChime, unlockAudio, useAudioSettings } from '@/lib/showroom-audio';
 
 const categories: SaleCategory[] = ['moto', 'consortium'];
 
 export default function TvPage() {
   const sales = useSalesState();
+  const uploadedAudio = useStoredAudio();
   const audioSettings = useAudioSettings();
   const [soundOn, setSoundOn] = useState(() => {
     try { return window.localStorage.getItem('honda-metas-sound') !== 'off'; } catch { return true; }
@@ -38,8 +39,8 @@ export default function TvPage() {
     if (lastActionKey.current === key) return;
     lastActionKey.current = key;
     setCelebration({ ...action, id: action.at });
-    playSaleChime(soundOn, audioSettings);
-  }, [sales.lastAction, soundOn, audioSettings]);
+    playSaleChime(soundOn, audioSettings, uploadedAudio);
+  }, [sales.lastAction, soundOn, audioSettings, uploadedAudio]);
 
   const toggleSound = useCallback(() => {
     unlockAudio();

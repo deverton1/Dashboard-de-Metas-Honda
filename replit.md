@@ -26,7 +26,7 @@ Dashboard frontend-only para acompanhar metas de vendas de motos Honda em uma te
 - `artifacts/honda-metas/src/pages/tv.tsx` — placar fullscreen para a TV
 - `artifacts/honda-metas/src/pages/controle.tsx` — operação de inclusão, desfazimento e metas
 - `artifacts/honda-metas/src/lib/sales-store.ts` — SQLite WASM no navegador, persistido localmente
-- `artifacts/honda-metas/src/lib/showroom-audio.ts` — áudio de celebração via Web Audio
+- `artifacts/honda-metas/src/lib/showroom-audio.ts` — áudio de celebração via Web Audio ou MP3 personalizado
 
 ## Architecture decisions
 
@@ -34,6 +34,7 @@ Dashboard frontend-only para acompanhar metas de vendas de motos Honda em uma te
 - O estado de vendas é um banco SQLite executado via WASM e serializado no storage local do navegador para sobreviver a recargas e sincronizar abas.
 - A rota `/tv` é o modo de exibição e `/controle` é o modo operador; ambas usam o mesmo estado local.
 - A celebração de cada lançamento dura 10 segundos e o áudio é gerado pelo navegador, sem arquivo externo.
+- O operador pode enviar um MP3 de até 5 MB; o arquivo é salvo como BLOB no SQLite local e reproduzido em loop durante a celebração.
 
 ## Product
 
