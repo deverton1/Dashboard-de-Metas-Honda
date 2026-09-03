@@ -105,6 +105,11 @@ export default function ControlePage() {
     }
   }, []);
 
+  const dismissCelebration = useCallback(() => {
+    stopCelebrationAudio();
+    setCelebration(null);
+  }, []);
+
   return (
     <main className="min-h-[100dvh] bg-[#f5f1e9] text-[#172630]" data-testid="page-controle">
       <ShowroomNav />
@@ -262,7 +267,7 @@ export default function ControlePage() {
         <footer className="mt-8 flex items-center justify-between text-[10px] font-bold uppercase tracking-[.18em] text-[#9da19d]"><span>Honda Motos • Painel operador</span><span className="hidden items-center gap-1 sm:flex">Dados locais <ChevronRight size={13} /></span></footer>
       </div>
 
-      <CelebrationOverlay celebration={celebration} onDismiss={() => setCelebration(null)} />
+      <CelebrationOverlay celebration={celebration} onDismiss={dismissCelebration} />
       {confirmReset && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#172630]/70 p-5 backdrop-blur-sm" data-testid="dialog-reset-confirm">
           <div className="w-full max-w-md rounded-[22px] border border-[#e1dcd2] bg-[#fbfaf6] p-7 shadow-[0_24px_70px_rgba(23,38,48,.3)]">

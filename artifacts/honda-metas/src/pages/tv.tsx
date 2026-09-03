@@ -4,7 +4,7 @@ import { ArrowUpRight, Maximize2, Monitor, Target, Volume2, VolumeX } from 'luci
 import { CelebrationOverlay } from '@/components/celebration-overlay';
 import { HondaMark } from '@/components/honda-mark';
 import { CATEGORY_META, getTotal, useSalesState, useStoredAudio, type SaleCategory } from '@/lib/sales-store';
-import { playSaleChime, unlockAudio, useAudioSettings } from '@/lib/showroom-audio';
+import { playSaleChime, stopCelebrationAudio, unlockAudio, useAudioSettings } from '@/lib/showroom-audio';
 
 const categories: SaleCategory[] = ['moto', 'consortium'];
 
@@ -50,6 +50,11 @@ export default function TvPage() {
       try { window.localStorage.setItem('honda-metas-sound', next ? 'on' : 'off'); } catch { /* local preference */ }
       return next;
     });
+  }, []);
+
+  const dismissCelebration = useCallback(() => {
+    stopCelebrationAudio();
+    setCelebration(null);
   }, []);
 
   const enterFullscreen = useCallback(() => {
@@ -129,7 +134,7 @@ export default function TvPage() {
           <span>Honda Motos <span className="mx-2 text-[#e40521]">/</span> Juntos no próximo giro</span>
         </footer>
       </div>
-      <CelebrationOverlay celebration={celebration} onDismiss={() => setCelebration(null)} />
+      <CelebrationOverlay celebration={celebration} onDismiss={dismissCelebration} />
     </main>
   );
 }

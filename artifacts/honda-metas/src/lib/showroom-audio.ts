@@ -4,7 +4,9 @@ import type { StoredAudio } from './sales-store';
 let audioContext: AudioContext | null = null;
 let customAudio: HTMLAudioElement | null = null;
 let customAudioUrl: string | null = null;
-let customAudioTimer: number | null = null;
+let celebrationTimer: number | null = null;
+let activeMaster: GainNode | null = null;
+let activeOscillators: OscillatorNode[] = [];
 const AUDIO_SETTINGS_STORAGE_KEY = 'honda-metas-audio-settings-v1';
 
 export type AudioPreset = 'anthem' | 'sprint' | 'spark';
@@ -97,10 +99,6 @@ export function useAudioSettings() {
 }
 
 function stopCustomAudio() {
-  if (customAudioTimer !== null) {
-    window.clearTimeout(customAudioTimer);
-    customAudioTimer = null;
-  }
   if (customAudio) {
     customAudio.pause();
     customAudio.currentTime = 0;
@@ -113,7 +111,27 @@ function stopCustomAudio() {
 }
 
 export function stopCelebrationAudio() {
+  if (celebrationTimer !== null) {
+    window.clearTimeout(celebrationTimer);
+    celebrationTimer = null;
+  }
   stopCustomAudio();
+  const context = audioContext;
+  if (activeMaster && context) {
+    const now = context.currentTime;
+    activeMaster.gain.cancelScheduledValues(now);
+    activeMaster.gain.setValueAtTime(0.0001, now);
+    activeMaster.disconnect();
+  }
+  activeOscillators.forEach((oscillator) => {
+    try {
+      oscillator.stop();
+    } catch {
+      // The oscillator may already have reached its scheduled stop time.
+    }
+  });
+  activeOscillators = [];
+  activeMaster = null;
 }
 
 function getAudioContext() {
@@ -133,7 +151,7 @@ export function playSaleChime(
   uploadedAudio: StoredAudio | null = null,
 ) {
   if (!enabled) return;
-  stopCustomAudio();
+  stopCelebrationAudio();
   if (uploadedAudio) {
     customAudioUrl = URL.createObjectURL(
       new Blob(
@@ -145,7 +163,7 @@ export function playSaleChime(
     customAudio.loop = true;
     customAudio.volume = settings.volume / 100;
     void customAudio.play().catch(() => undefined);
-    customAudioTimer = window.setTimeout(stopCustomAudio, 10_000);
+    celebrationTimer = window.setTimeout(stopCelebrationAudio, 10_000);
     return;
   }
   const context = getAudioContext();
@@ -154,6 +172,8 @@ export function playSaleChime(
   const now = context.currentTime;
   const celebrationDuration = 10;
   const master = context.createGain();
+  activeMaster = master;
+  activeOscillators = [];
   master.gain.setValueAtTime(0.0001, now);
   const masterVolume = Math.max(0.01, settings.volume / 100) * 0.2;
   master.gain.exponentialRampToValueAtTime(masterVolume, now + 0.04);
@@ -183,6 +203,7 @@ export function playSaleChime(
     noteGain.connect(master);
     oscillator.start(start);
     oscillator.stop(start + 0.45);
+    activeOscillators.push(oscillator);
   }
 
   const shimmer = context.createOscillator();
@@ -201,6 +222,8 @@ export function playSaleChime(
   shimmerGain.connect(master);
   shimmer.start(now);
   shimmer.stop(now + celebrationDuration);
+  activeOscillators.push(shimmer);
+  celebrationTimer = window.setTimeout(stopCelebrationAudio, celebrationDuration * 1000);
 }
 
 if (typeof window !== 'undefined') {
