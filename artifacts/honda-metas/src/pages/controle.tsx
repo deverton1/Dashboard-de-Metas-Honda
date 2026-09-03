@@ -190,7 +190,7 @@ export default function ControlePage() {
               </div>
               <span className="hidden rounded-full bg-[#efeae0] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-[#7a8587] sm:block">10 segundos</span>
             </div>
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
+             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {(Object.keys(AUDIO_PRESETS) as Array<keyof typeof AUDIO_PRESETS>).map((preset) => {
                 const option = AUDIO_PRESETS[preset];
                 const selected = audioSettings.preset === preset;

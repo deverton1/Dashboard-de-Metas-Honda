@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { StoredAudio } from './sales-store';
+import moneySoundUrl from '@assets/money-soundfx_1788397375766.mp3?url';
 
 let audioContext: AudioContext | null = null;
 let customAudio: HTMLAudioElement | null = null;
@@ -9,7 +10,7 @@ let activeMaster: GainNode | null = null;
 let activeOscillators: OscillatorNode[] = [];
 const AUDIO_SETTINGS_STORAGE_KEY = 'honda-metas-audio-settings-v1';
 
-export type AudioPreset = 'anthem' | 'sprint' | 'spark';
+export type AudioPreset = 'anthem' | 'sprint' | 'spark' | 'money';
 export type AudioSettings = {
   preset: AudioPreset;
   volume: number;
@@ -39,13 +40,23 @@ export const AUDIO_PRESETS: Record<
     detail: 'Brilhante e leve',
     icon: 'F',
   },
+  money: {
+    label: 'Money FX',
+    detail: 'Efeito de dinheiro',
+    icon: '$',
+  },
 };
 
 let audioSettings = readAudioSettings();
 const audioSettingsListeners = new Set<() => void>();
 
 function isAudioPreset(value: unknown): value is AudioPreset {
-  return value === 'anthem' || value === 'sprint' || value === 'spark';
+  return (
+    value === 'anthem' ||
+    value === 'sprint' ||
+    value === 'spark' ||
+    value === 'money'
+  );
 }
 
 function normalizeAudioSettings(value: Partial<AudioSettings>): AudioSettings {
@@ -110,6 +121,15 @@ function stopCustomAudio() {
   }
 }
 
+function playAudioFile(url: string, volume: number) {
+  customAudioUrl = url;
+  customAudio = new Audio(url);
+  customAudio.loop = true;
+  customAudio.volume = volume / 100;
+  void customAudio.play().catch(() => undefined);
+  celebrationTimer = window.setTimeout(stopCelebrationAudio, 10_000);
+}
+
 export function stopCelebrationAudio() {
   if (celebrationTimer !== null) {
     window.clearTimeout(celebrationTimer);
@@ -153,17 +173,17 @@ export function playSaleChime(
   if (!enabled) return;
   stopCelebrationAudio();
   if (uploadedAudio) {
-    customAudioUrl = URL.createObjectURL(
+    const uploadedAudioUrl = URL.createObjectURL(
       new Blob(
         [uploadedAudio.bytes.slice().buffer as ArrayBuffer],
         { type: uploadedAudio.type || 'audio/mpeg' },
       ),
     );
-    customAudio = new Audio(customAudioUrl);
-    customAudio.loop = true;
-    customAudio.volume = settings.volume / 100;
-    void customAudio.play().catch(() => undefined);
-    celebrationTimer = window.setTimeout(stopCelebrationAudio, 10_000);
+    playAudioFile(uploadedAudioUrl, settings.volume);
+    return;
+  }
+  if (settings.preset === 'money') {
+    playAudioFile(moneySoundUrl, settings.volume);
     return;
   }
   const context = getAudioContext();
@@ -185,6 +205,7 @@ export function playSaleChime(
     anthem: [523.25, 659.25, 783.99, 659.25, 1046.5, 783.99, 659.25, 783.99],
     sprint: [392, 523.25, 659.25, 783.99, 659.25, 783.99, 1046.5, 1318.5],
     spark: [659.25, 783.99, 1046.5, 1318.5, 1046.5, 1567.98, 1318.5, 1046.5],
+    money: [523.25],
   };
   const melody = melodies[settings.preset];
   const noteType = settings.preset === 'sprint' ? 'square' : 'triangle';
