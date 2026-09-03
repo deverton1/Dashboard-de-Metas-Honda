@@ -48,6 +48,7 @@ export default function ControlePage() {
     }
     if (lastActionKey.current === key) return;
     lastActionKey.current = key;
+    if (action.direction !== 'add') return;
     setCelebration({ ...action, id: action.at });
     playSaleChime(soundOn, audioSettings, uploadedAudio);
   }, [sales.lastAction, soundOn, audioSettings, uploadedAudio]);
