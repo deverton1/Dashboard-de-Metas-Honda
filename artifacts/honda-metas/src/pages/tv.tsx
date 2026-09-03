@@ -6,7 +6,7 @@ import { HondaMark } from '@/components/honda-mark';
 import { CATEGORY_META, getTotal, useSalesState, type SaleCategory } from '@/lib/sales-store';
 import { playSaleChime, unlockAudio } from '@/lib/showroom-audio';
 
-const categories: SaleCategory[] = ['cash', 'finance', 'consortium'];
+const categories: SaleCategory[] = ['moto', 'consortium'];
 
 export default function TvPage() {
   const sales = useSalesState();
@@ -91,13 +91,13 @@ export default function TvPage() {
               <p className="mt-6 max-w-md text-sm leading-relaxed text-[#aebbb9] sm:text-base">Cada entrega move o time. Cada conquista aproxima a nossa meta.</p>
             </div>
             <div className="lg:pb-1 lg:text-right">
-              <div className="text-[10px] font-bold uppercase tracking-[.28em] text-[#8d9b9e]">Total de motos</div>
+              <div className="text-[10px] font-bold uppercase tracking-[.28em] text-[#8d9b9e]">Total de vendas</div>
               <div className="mt-1 font-display text-[clamp(6rem,14vw,12rem)] font-extrabold leading-[.78] tracking-[-.05em] text-white" data-testid="text-tv-total">{total}</div>
               <div className="mt-4 flex items-center gap-2 text-sm text-[#aebbb9] lg:justify-end"><Target size={16} className="text-[#f0b323]" /> {overallPercent}% da meta geral</div>
             </div>
           </div>
 
-          <div className="mt-12 grid gap-3 md:grid-cols-3 md:gap-4 lg:mt-16">
+          <div className="mt-12 grid gap-3 md:grid-cols-2 md:gap-4 lg:mt-16">
             {categories.map((category, index) => {
               const meta = CATEGORY_META[category];
               const count = sales.counts[category];

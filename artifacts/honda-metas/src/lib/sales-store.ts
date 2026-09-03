@@ -2,7 +2,7 @@ import initSqlJs, { type Database as SqlDatabase } from 'sql.js';
 import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 import { useSyncExternalStore } from 'react';
 
-export type SaleCategory = 'cash' | 'finance' | 'consortium';
+export type SaleCategory = 'moto' | 'consortium';
 export type SaleDirection = 'add' | 'remove';
 
 export type SalesState = {
@@ -15,8 +15,8 @@ export type SalesState = {
 const DATABASE_STORAGE_KEY = 'honda-metas-sqlite-v1';
 const SNAPSHOT_STORAGE_KEY = 'honda-metas-snapshot-v1';
 const DEFAULT_STATE: SalesState = {
-  counts: { cash: 18, finance: 13, consortium: 9 },
-  goals: { cash: 28, finance: 22, consortium: 16 },
+  counts: { moto: 18, consortium: 9 },
+  goals: { moto: 28, consortium: 16 },
   lastAction: null,
   updatedAt: Date.now(),
 };
@@ -28,7 +28,7 @@ let pendingState: SalesState | null = null;
 const listeners = new Set<() => void>();
 
 function isSaleCategory(value: unknown): value is SaleCategory {
-  return value === 'cash' || value === 'finance' || value === 'consortium';
+  return value === 'moto' || value === 'consortium';
 }
 
 function isSaleDirection(value: unknown): value is SaleDirection {
@@ -36,6 +36,18 @@ function isSaleDirection(value: unknown): value is SaleDirection {
 }
 
 function normalizeState(value: Partial<SalesState>): SalesState {
+  const legacyCounts = value.counts as Partial<
+    Record<SaleCategory | 'cash' | 'finance', number>
+  > | undefined;
+  const legacyGoals = value.goals as Partial<
+    Record<SaleCategory | 'cash' | 'finance', number>
+  > | undefined;
+  const motoCount =
+    typeof legacyCounts?.moto === 'number'
+      ? legacyCounts.moto
+      : legacyCounts?.cash;
+  const motoGoal =
+    typeof legacyGoals?.moto === 'number' ? legacyGoals.moto : legacyGoals?.cash;
   const lastAction =
     value.lastAction &&
     isSaleCategory(value.lastAction.category) &&
@@ -47,8 +59,26 @@ function normalizeState(value: Partial<SalesState>): SalesState {
   return {
     ...DEFAULT_STATE,
     ...value,
-    counts: { ...DEFAULT_STATE.counts, ...(value.counts ?? {}) },
-    goals: { ...DEFAULT_STATE.goals, ...(value.goals ?? {}) },
+    counts: {
+      moto:
+        typeof motoCount === 'number'
+          ? Math.max(0, motoCount)
+          : DEFAULT_STATE.counts.moto,
+      consortium:
+        typeof legacyCounts?.consortium === 'number'
+          ? Math.max(0, legacyCounts.consortium)
+          : DEFAULT_STATE.counts.consortium,
+    },
+    goals: {
+      moto:
+        typeof motoGoal === 'number'
+          ? Math.max(1, motoGoal)
+          : DEFAULT_STATE.goals.moto,
+      consortium:
+        typeof legacyGoals?.consortium === 'number'
+          ? Math.max(1, legacyGoals.consortium)
+          : DEFAULT_STATE.goals.consortium,
+    },
     lastAction,
     updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : Date.now(),
   };
@@ -118,9 +148,14 @@ function readStateFromDatabase(db: SqlDatabase): SalesState | null {
   const counts = { ...DEFAULT_STATE.counts };
   const goals = { ...DEFAULT_STATE.goals };
   rows.forEach(([category, count, goal]) => {
-    if (!isSaleCategory(category)) return;
-    if (typeof count === 'number') counts[category] = Math.max(0, count);
-    if (typeof goal === 'number') goals[category] = Math.max(1, goal);
+    const normalizedCategory = category === 'cash' ? 'moto' : category;
+    if (!isSaleCategory(normalizedCategory)) return;
+    if (typeof count === 'number') {
+      counts[normalizedCategory] = Math.max(0, count);
+    }
+    if (typeof goal === 'number') {
+      goals[normalizedCategory] = Math.max(1, goal);
+    }
   });
 
   const meta = db.exec(
@@ -277,7 +312,6 @@ export function getTotal(stateValue: SalesState) {
 }
 
 export const CATEGORY_META: Record<SaleCategory, { label: string; shortLabel: string; detail: string; color: string }> = {
-  cash: { label: 'Venda à vista', shortLabel: 'À vista', detail: 'Pagamento integral', color: '#e40521' },
-  finance: { label: 'Venda financiada', shortLabel: 'Financiada', detail: 'Plano Honda Banco', color: '#f0b323' },
+  moto: { label: 'Moto', shortLabel: 'Moto', detail: 'Venda de motocicleta', color: '#e40521' },
   consortium: { label: 'Consórcio', shortLabel: 'Consórcio', detail: 'Plano de conquista', color: '#78aeb4' },
 };

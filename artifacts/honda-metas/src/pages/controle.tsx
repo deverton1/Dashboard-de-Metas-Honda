@@ -6,7 +6,7 @@ import { ShowroomNav } from '@/components/showroom-nav';
 import { CATEGORY_META, getTotal, recordSale, resetSales, updateGoal, useSalesState, type SaleCategory } from '@/lib/sales-store';
 import { playSaleChime, unlockAudio } from '@/lib/showroom-audio';
 
-const categories: SaleCategory[] = ['cash', 'finance', 'consortium'];
+const categories: SaleCategory[] = ['moto', 'consortium'];
 
 export default function ControlePage() {
   const sales = useSalesState();
@@ -14,8 +14,7 @@ export default function ControlePage() {
     try { return window.localStorage.getItem('honda-metas-sound') !== 'off'; } catch { return true; }
   });
   const [goalDrafts, setGoalDrafts] = useState<Record<SaleCategory, string>>({
-    cash: String(sales.goals.cash),
-    finance: String(sales.goals.finance),
+    moto: String(sales.goals.moto),
     consortium: String(sales.goals.consortium),
   });
   const [confirmReset, setConfirmReset] = useState(false);
@@ -24,10 +23,10 @@ export default function ControlePage() {
   const total = getTotal(sales);
   const totalGoal = Object.values(sales.goals).reduce((sum, goal) => sum + goal, 0);
   const totalPercent = Math.min(100, Math.round((total / totalGoal) * 100));
-  const goalSignature = useMemo(() => `${sales.goals.cash}-${sales.goals.finance}-${sales.goals.consortium}`, [sales.goals.cash, sales.goals.finance, sales.goals.consortium]);
+  const goalSignature = useMemo(() => `${sales.goals.moto}-${sales.goals.consortium}`, [sales.goals.moto, sales.goals.consortium]);
 
   useEffect(() => {
-    setGoalDrafts({ cash: String(sales.goals.cash), finance: String(sales.goals.finance), consortium: String(sales.goals.consortium) });
+    setGoalDrafts({ moto: String(sales.goals.moto), consortium: String(sales.goals.consortium) });
   }, [goalSignature]); // keep a second tab's goal edits visible
 
   useEffect(() => {
