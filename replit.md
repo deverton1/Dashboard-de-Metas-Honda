@@ -1,6 +1,6 @@
-# [Project name]
+# Honda Metas
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Dashboard frontend-only para acompanhar metas de vendas de motos Honda em uma tela de TV e em um painel de controle.
 
 ## Run & Operate
 
@@ -19,26 +19,35 @@ _Replace the heading above with the project's name, and this line with one sente
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
+- Frontend: React + TypeScript + Vite, local SQLite WASM persistence
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/honda-metas/src/pages/tv.tsx` — placar fullscreen para a TV
+- `artifacts/honda-metas/src/pages/controle.tsx` — operação de inclusão, desfazimento e metas
+- `artifacts/honda-metas/src/lib/sales-store.ts` — SQLite WASM no navegador, persistido localmente
+- `artifacts/honda-metas/src/lib/showroom-audio.ts` — áudio de celebração via Web Audio
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- A aplicação é frontend-only por decisão do piloto; não há rotas de API nem cadastro.
+- O estado de vendas é um banco SQLite executado via WASM e serializado no storage local do navegador para sobreviver a recargas e sincronizar abas.
+- A rota `/tv` é o modo de exibição e `/controle` é o modo operador; ambas usam o mesmo estado local.
+- A celebração de cada lançamento dura 10 segundos e o áudio é gerado pelo navegador, sem arquivo externo.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Registra e desfaz vendas à vista, financiadas e de consórcio.
+- Mostra totais, metas e progresso por categoria no painel de controle e no placar de TV.
+- Permite configurar metas, resetar o dia com confirmação, entrar em tela cheia e ligar/desligar o som.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- O usuário pediu uma solução simples, sem backend e sem emojis na interface.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- O áudio exige uma interação do usuário para ser desbloqueado por políticas do navegador.
 
 ## Pointers
 

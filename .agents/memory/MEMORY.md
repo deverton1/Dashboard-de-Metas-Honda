@@ -1,0 +1,1 @@
+- [Honda local SQLite](honda-local-sqlite.md) — browser SQLite WASM is serialized locally to keep the pilot backend-free while syncing TV and control tabs.

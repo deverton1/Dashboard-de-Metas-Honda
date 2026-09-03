@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Honda Metas"
+description = "Dashboard frontend-only para acompanhar e registrar metas de vendas de motos Honda em uma tela de TV e uma tela de controle."
+version = "1.0.0"
+id = "artifacts/honda-metas"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18127
+
+[services.development]
+run = "pnpm --filter @workspace/honda-metas run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/honda-metas", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/honda-metas/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18127"
+BASE_PATH = "/"
