@@ -4,12 +4,13 @@ import { ArrowUpRight, Maximize2, Monitor, Target, Volume2, VolumeX } from 'luci
 import { CelebrationOverlay } from '@/components/celebration-overlay';
 import { HondaMark } from '@/components/honda-mark';
 import { CATEGORY_META, getTotal, useSalesState, type SaleCategory } from '@/lib/sales-store';
-import { playSaleChime, unlockAudio } from '@/lib/showroom-audio';
+import { playSaleChime, unlockAudio, useAudioSettings } from '@/lib/showroom-audio';
 
 const categories: SaleCategory[] = ['moto', 'consortium'];
 
 export default function TvPage() {
   const sales = useSalesState();
+  const audioSettings = useAudioSettings();
   const [soundOn, setSoundOn] = useState(() => {
     try { return window.localStorage.getItem('honda-metas-sound') !== 'off'; } catch { return true; }
   });
@@ -37,8 +38,8 @@ export default function TvPage() {
     if (lastActionKey.current === key) return;
     lastActionKey.current = key;
     setCelebration({ ...action, id: action.at });
-    playSaleChime(soundOn);
-  }, [sales.lastAction, soundOn]);
+    playSaleChime(soundOn, audioSettings);
+  }, [sales.lastAction, soundOn, audioSettings]);
 
   const toggleSound = useCallback(() => {
     unlockAudio();

@@ -4,6 +4,16 @@ import { CATEGORY_META, type SaleCategory, type SaleDirection } from '@/lib/sale
 
 type Celebration = { category: SaleCategory; direction: SaleDirection; id: number };
 
+const confettiColors = ['#e40521', '#f0b323', '#fffaf0', '#78aeb4', '#ff6f7d'];
+const confettiPieces = Array.from({ length: 86 }, (_, index) => ({
+  id: index,
+  left: `${(index * 37) % 101}%`,
+  delay: `${(index * 83) % 2300}ms`,
+  duration: `${2600 + (index % 6) * 320}ms`,
+  color: confettiColors[index % confettiColors.length],
+  shape: index % 4 === 0 ? 'confetti-circle' : index % 4 === 1 ? 'confetti-diamond' : '',
+}));
+
 export function CelebrationOverlay({ celebration, onDismiss }: { celebration: Celebration | null; onDismiss: () => void }) {
   const [seconds, setSeconds] = useState(10);
   const onDismissRef = useRef(onDismiss);
@@ -24,11 +34,27 @@ export function CelebrationOverlay({ celebration, onDismiss }: { celebration: Ce
   const meta = CATEGORY_META[celebration.category];
   const isAdd = celebration.direction === 'add';
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#101a23]/[.88] p-5 backdrop-blur-md" data-testid="overlay-celebration">
-      <div className="celebrate-in relative w-full max-w-2xl overflow-hidden rounded-[28px] border border-white/15 bg-[#182a36] px-7 py-10 text-center text-[#fffaf0] shadow-[0_30px_100px_rgba(0,0,0,.45)] sm:px-16 sm:py-14">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-hidden bg-[#101a23]/[.9] p-5 backdrop-blur-md" data-testid="overlay-celebration">
+      <div className="celebration-confetti" aria-hidden="true">
+        {confettiPieces.map((piece) => (
+          <span
+            key={piece.id}
+            className={`confetti-piece ${piece.shape}`}
+            style={{
+              left: piece.left,
+              animationDelay: piece.delay,
+              animationDuration: piece.duration,
+              backgroundColor: piece.color,
+            }}
+          />
+        ))}
+      </div>
+      <div className="celebrate-in relative z-10 w-full max-w-2xl overflow-hidden rounded-[28px] border border-white/15 bg-[#182a36] px-7 py-10 text-center text-[#fffaf0] shadow-[0_30px_100px_rgba(0,0,0,.45)] sm:px-16 sm:py-14">
+        <div className="celebration-rays" aria-hidden="true" />
+        <div className="celebration-glow" aria-hidden="true" />
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border-[34px] border-[#e40521]/25" />
         <div className="absolute -bottom-32 -left-16 h-72 w-72 rounded-full border-[44px] border-[#f0b323]/20" />
-        <div className="relative">
+        <div className="relative z-10">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#f0b323] text-[#172630] shadow-[0_0_0_10px_rgba(240,179,35,.14)]">
             {isAdd ? <Check size={40} strokeWidth={3.2} /> : <X size={40} strokeWidth={3.2} />}
           </div>

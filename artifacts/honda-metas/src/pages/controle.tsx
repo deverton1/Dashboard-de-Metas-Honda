@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'wouter';
-import { ArrowDown, ArrowUp, Check, ChevronRight, CircleHelp, Maximize2, RotateCcw, Target, Volume2, VolumeX } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronRight, CircleHelp, Headphones, Maximize2, Play, RotateCcw, Target, Volume2, VolumeX } from 'lucide-react';
 import { CelebrationOverlay } from '@/components/celebration-overlay';
 import { ShowroomNav } from '@/components/showroom-nav';
 import { CATEGORY_META, getTotal, recordSale, resetSales, updateGoal, useSalesState, type SaleCategory } from '@/lib/sales-store';
-import { playSaleChime, unlockAudio } from '@/lib/showroom-audio';
+import { AUDIO_PRESETS, playSaleChime, setAudioSettings, unlockAudio, useAudioSettings } from '@/lib/showroom-audio';
 
 const categories: SaleCategory[] = ['moto', 'consortium'];
 
 export default function ControlePage() {
   const sales = useSalesState();
+  const audioSettings = useAudioSettings();
   const [soundOn, setSoundOn] = useState(() => {
     try { return window.localStorage.getItem('honda-metas-sound') !== 'off'; } catch { return true; }
   });
@@ -46,8 +47,8 @@ export default function ControlePage() {
     if (lastActionKey.current === key) return;
     lastActionKey.current = key;
     setCelebration({ ...action, id: action.at });
-    playSaleChime(soundOn);
-  }, [sales.lastAction, soundOn]);
+    playSaleChime(soundOn, audioSettings);
+  }, [sales.lastAction, soundOn, audioSettings]);
 
   const changeSale = useCallback((category: SaleCategory, direction: 'add' | 'remove') => {
     unlockAudio();
@@ -75,6 +76,11 @@ export default function ControlePage() {
   const enterFullscreen = useCallback(() => {
     if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.();
   }, []);
+
+  const previewAudio = useCallback(() => {
+    unlockAudio();
+    playSaleChime(true, audioSettings);
+  }, [audioSettings]);
 
   return (
     <main className="min-h-[100dvh] bg-[#f5f1e9] text-[#172630]" data-testid="page-controle">
@@ -138,6 +144,64 @@ export default function ControlePage() {
                 );
               })}
             </div>
+          </div>
+        </section>
+
+        <section className="enter-up enter-up-delay-3 mt-5 grid gap-5 lg:grid-cols-[1.4fr_.6fr]">
+          <div className="rounded-[22px] border border-[#e1dcd2] bg-[#fbfaf6] p-5 shadow-[0_8px_25px_rgba(23,38,48,.05)] sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f2e9dc] text-[#e40521]">
+                  <Headphones size={19} />
+                </div>
+                <div>
+                  <h2 className="font-display text-3xl font-bold uppercase tracking-tight">Som da comemoração</h2>
+                  <p className="mt-1 text-xs text-[#899096]">Escolha a assinatura sonora que toca a cada venda.</p>
+                </div>
+              </div>
+              <span className="hidden rounded-full bg-[#efeae0] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-[#7a8587] sm:block">10 segundos</span>
+            </div>
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+              {(Object.keys(AUDIO_PRESETS) as Array<keyof typeof AUDIO_PRESETS>).map((preset) => {
+                const option = AUDIO_PRESETS[preset];
+                const selected = audioSettings.preset === preset;
+                return (
+                  <button
+                    key={preset}
+                    onClick={() => setAudioSettings({ ...audioSettings, preset })}
+                    aria-pressed={selected}
+                    className={`rounded-xl border p-4 text-left transition ${selected ? 'border-[#e40521] bg-[#fff0f1] shadow-[0_0_0_3px_rgba(228,5,33,.08)]' : 'border-[#e4ded4] bg-[#f8f5ef] hover:border-[#b8afa1]'}`}
+                    data-testid={`button-audio-preset-${preset}`}
+                  >
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full font-display text-lg font-bold ${selected ? 'bg-[#e40521] text-white' : 'bg-[#e8e0d4] text-[#172630]'}`}>{option.icon}</span>
+                    <span className="mt-3 block text-sm font-bold text-[#172630]">{option.label}</span>
+                    <span className="mt-1 block text-[11px] text-[#8b9392]">{option.detail}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="rounded-[22px] bg-[#e40521] p-5 text-white shadow-[0_12px_30px_rgba(228,5,33,.16)] sm:p-7">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-bold uppercase tracking-[.22em] text-white/70">Ajuste fino</div>
+              <button onClick={previewAudio} className="flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-[10px] font-bold uppercase tracking-[.1em] text-[#e40521] transition hover:bg-[#fff4f4]" data-testid="button-preview-audio">
+                <Play size={13} fill="currentColor" /> Ouvir prévia
+              </button>
+            </div>
+            <label className="mt-8 block text-sm font-bold">
+              Volume <span className="float-right font-mono text-sm">{audioSettings.volume}%</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={audioSettings.volume}
+                onChange={(event) => setAudioSettings({ ...audioSettings, volume: Number(event.target.value) })}
+                className="mt-4 h-2 w-full cursor-pointer accent-[#fffaf0]"
+                data-testid="input-audio-volume"
+              />
+            </label>
+            <p className="mt-6 text-xs leading-relaxed text-white/75">A escolha fica salva neste navegador e também vale para a tela da TV.</p>
           </div>
         </section>
 
